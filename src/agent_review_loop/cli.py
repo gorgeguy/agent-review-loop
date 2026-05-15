@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 import time
 from pathlib import Path
 from typing import Any, NoReturn, cast
@@ -155,6 +156,7 @@ def send(
 def monitor(
     session: str = typer.Option(..., "--session"),
     follow: bool = typer.Option(False, "--follow"),
+    human: bool = typer.Option(False, "--human"),
     poll_interval: float = typer.Option(0.5, "--poll-interval", hidden=True, min=0.01),
 ) -> None:
     """Observe session status and messages without mutating state."""
@@ -167,7 +169,10 @@ def monitor(
             int(payload["messages"][-1]["id"]) if payload["messages"] else 0,
         )
         if signature != last_signature:
-            emit({"ok": True, "payload": payload})
+            if human:
+                typer.echo(format_monitor_payload(payload))
+            else:
+                emit({"ok": True, "payload": payload})
             last_signature = signature
         if not follow or payload["session"]["status"] != "active":
             return
@@ -192,10 +197,16 @@ def status(session: str = typer.Option(..., "--session")) -> None:
 
 
 @app.command()
-def transcript(session: str = typer.Option(..., "--session")) -> None:
+def transcript(
+    session: str = typer.Option(..., "--session"),
+    human: bool = typer.Option(False, "--human"),
+) -> None:
     """Print the conversation transcript."""
 
     payload = monitor_payload(session)
+    if human:
+        typer.echo(format_transcript(payload["messages"]))
+        return
     emit({"ok": True, "payload": {"messages": payload["messages"]}})
 
 
@@ -290,6 +301,55 @@ EDITOR PROMPT BEGIN
 {editor_prompt}
 EDITOR PROMPT END
 """
+
+
+def format_monitor_payload(payload: dict[str, Any]) -> str:
+    """Format a monitor payload for humans."""
+
+    session = payload["session"]
+    latest_version = payload["latest_version"]
+    decision = payload["decision"]
+    lines = [
+        f"Session: {session['id']}",
+        f"Status: {session['status']}",
+        f"Turn: {session['turn']}",
+        f"Round: {session['current_round']} / {session['max_rounds']}",
+        f"Document: {session['document_path']}",
+        f"Latest hash: {latest_version['file_hash']}",
+        f"Snapshot: {latest_version['snapshot_path']}",
+    ]
+    if decision is not None:
+        lines.extend(
+            [
+                "",
+                f"Decision: {decision['status']}",
+                f"Reason: {decision['reason']}",
+            ]
+        )
+    lines.extend(["", "Transcript:", format_transcript(payload["messages"])])
+    return "\n".join(lines)
+
+
+def format_transcript(messages: list[dict[str, Any]]) -> str:
+    """Format conversation messages for humans."""
+
+    if not messages:
+        return "No messages."
+    rendered: list[str] = []
+    for message in messages:
+        rendered.append(
+            "\n".join(
+                [
+                    (
+                        f"[{message['id']}] round {message['round']} "
+                        f"{message['role']} {message['type']}"
+                    ),
+                    f"    at {message['created_at']}",
+                    textwrap.indent(str(message["body"]).strip() or "(empty)", "    "),
+                ]
+            )
+        )
+    return "\n\n".join(rendered)
 
 
 def broker_request(session_id: str, request: dict[str, Any]) -> dict[str, Any]:

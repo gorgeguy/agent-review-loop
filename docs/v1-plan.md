@@ -25,10 +25,10 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   - `arl prompt --role editor|reviewer --session <id>`
   - `arl next --role editor|reviewer --session <id> [--wait] [--context 5] [--full-transcript]`
   - `arl send --role editor|reviewer --session <id> --type <type> --body <text-or-file>`
-  - `arl monitor --session <id> [--follow]`
+  - `arl monitor --session <id> [--follow] [--human]`
 - Diagnostic commands, if still cheap after the core loop lands:
   - `arl status --session <id>`
-  - `arl transcript --session <id>`
+  - `arl transcript --session <id> [--human]`
 - Message types:
   - `review_request`
   - `review_feedback`
@@ -80,7 +80,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 - `arl monitor` is a read-only observer command over durable state. It prints
   the current status, turn, round, latest document hash, latest snapshot path,
   and conversation messages. With `--follow`, it streams new messages until
-  terminal state or interrupt.
+  terminal state or interrupt. JSON is the default output; `--human` renders a
+  readable terminal summary and transcript.
 - The editor sends `review_request` when ready for review. The broker hashes and
   snapshots the document at that point, increments or records the review round,
   and sets the turn to reviewer.

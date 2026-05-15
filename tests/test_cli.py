@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 
 from agent_review_loop.broker import serve_session
 from agent_review_loop.cli import app
-from agent_review_loop.models import SessionStatus
+from agent_review_loop.models import MessageType, Role, SessionStatus
 from agent_review_loop.store import Store
 
 runner = CliRunner()
@@ -214,6 +214,35 @@ def test_monitor_should_read_state_without_running_broker(tmp_path: Path) -> Non
     assert payload["messages"] == []
 
 
+def test_monitor_human_should_render_session_summary_and_transcript(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document)
+    store.append_message(
+        session.id,
+        role=Role.EDITOR,
+        message_type=MessageType.REVIEW_REQUEST,
+        round_number=1,
+        body="Fresh-eyes review requested.\nCheck assumptions.",
+    )
+
+    result = runner.invoke(
+        app,
+        ["monitor", "--session", session.id, "--human"],
+        env=env_for(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert f"Session: {session.id}" in result.output
+    assert "Status: active" in result.output
+    assert "Turn: editor" in result.output
+    assert "Transcript:" in result.output
+    assert "[1] round 1 editor review_request" in result.output
+    assert "    Fresh-eyes review requested." in result.output
+    assert "    Check assumptions." in result.output
+
+
 def test_monitor_follow_should_exit_when_session_is_terminal(tmp_path: Path) -> None:
     document = tmp_path / "draft.md"
     document.write_text("# Draft\n", encoding="utf-8")
@@ -229,6 +258,31 @@ def test_monitor_follow_should_exit_when_session_is_terminal(tmp_path: Path) -> 
 
     assert result.exit_code == 0
     assert json.loads(result.output)["payload"]["session"]["status"] == "approved"
+
+
+def test_transcript_human_should_render_only_messages(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document)
+    store.append_message(
+        session.id,
+        role=Role.REVIEWER,
+        message_type=MessageType.REVIEW_FEEDBACK,
+        round_number=1,
+        body="Tighten the introduction.",
+    )
+
+    result = runner.invoke(
+        app,
+        ["transcript", "--session", session.id, "--human"],
+        env=env_for(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert "Session:" not in result.output
+    assert "[1] round 1 reviewer review_feedback" in result.output
+    assert "    Tighten the introduction." in result.output
 
 
 def env_for(tmp_path: Path) -> dict[str, str]:
