@@ -32,6 +32,13 @@ class SessionStatus(StrEnum):
     MAX_ROUNDS_REACHED = "max_rounds_reached"
 
 
+class ApprovalPolicy(StrEnum):
+    """Who must agree before the session can end as approved."""
+
+    REVIEWER_ONLY = "reviewer-only"
+    CONSENSUS = "consensus"
+
+
 class Turn(StrEnum):
     """Whose turn it is to act next."""
 
@@ -53,6 +60,7 @@ class Session:
     current_round: int
     status: SessionStatus
     turn: Turn
+    approval_policy: ApprovalPolicy
     socket_path: str
     created_at: str
     updated_at: str

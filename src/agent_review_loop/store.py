@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agent_review_loop.models import (
+    ApprovalPolicy,
     Decision,
     DocumentVersion,
     Message,
@@ -43,7 +44,13 @@ class Store:
         self.db_path = database_path(home)
         self._ensure_schema()
 
-    def create_session(self, document_path: Path, *, max_rounds: int = 5) -> Session:
+    def create_session(
+        self,
+        document_path: Path,
+        *,
+        max_rounds: int = 5,
+        approval_policy: ApprovalPolicy = ApprovalPolicy.REVIEWER_ONLY,
+    ) -> Session:
         """Create a review session for an existing Markdown or text document."""
 
         resolved = document_path.expanduser().resolve()
@@ -62,9 +69,9 @@ class Store:
                 """
                 INSERT INTO sessions (
                     id, document_path, max_rounds, current_round, status, turn,
-                    socket_path, created_at, updated_at
+                    approval_policy, socket_path, created_at, updated_at
                 )
-                VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -72,6 +79,7 @@ class Store:
                     max_rounds,
                     SessionStatus.ACTIVE.value,
                     Turn.EDITOR.value,
+                    approval_policy.value,
                     str(sock_path),
                     now,
                     now,
@@ -288,6 +296,7 @@ class Store:
                     current_round INTEGER NOT NULL,
                     status TEXT NOT NULL,
                     turn TEXT NOT NULL,
+                    approval_policy TEXT NOT NULL DEFAULT 'reviewer-only',
                     socket_path TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -320,6 +329,19 @@ class Store:
                     reason TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                """
+            )
+            self._ensure_session_columns(conn)
+
+    def _ensure_session_columns(self, conn: sqlite3.Connection) -> None:
+        columns = {
+            str(row["name"]) for row in conn.execute("PRAGMA table_info(sessions)").fetchall()
+        }
+        if "approval_policy" not in columns:
+            conn.execute(
+                """
+                ALTER TABLE sessions
+                ADD COLUMN approval_policy TEXT NOT NULL DEFAULT 'reviewer-only'
                 """
             )
 
@@ -362,6 +384,7 @@ def row_to_session(row: sqlite3.Row) -> Session:
         current_round=int(row["current_round"]),
         status=SessionStatus(str(row["status"])),
         turn=Turn(str(row["turn"])),
+        approval_policy=ApprovalPolicy(str(row["approval_policy"])),
         socket_path=str(row["socket_path"]),
         created_at=str(row["created_at"]),
         updated_at=str(row["updated_at"]),

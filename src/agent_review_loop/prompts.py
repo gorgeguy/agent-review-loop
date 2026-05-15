@@ -42,6 +42,7 @@ Session id: {session_id}
 State home: {store.home}
 Document path: {document}
 Maximum review rounds: {session.max_rounds}
+Approval policy: {session.approval_policy.value}
 
 Commands below include ARL_HOME so they work from any current directory.
 
@@ -71,6 +72,7 @@ def build_arl_command(store: Store, args: list[str]) -> str:
 
 
 def _editor_body(store: Store, session_id: str) -> str:
+    session = store.get_session(session_id)
     editor_next = build_arl_command(
         store,
         [
@@ -111,6 +113,38 @@ def _editor_body(store: Store, session_id: str) -> str:
             "--body",
             "<report>",
         ],
+    )
+    approve = build_arl_command(
+        store,
+        [
+            "send",
+            "--role",
+            "editor",
+            "--session",
+            session_id,
+            "--type",
+            "approved",
+            "--body",
+            "APPROVED",
+        ],
+    )
+    consensus_guidance = (
+        f"""
+This session uses consensus approval. A reviewer `approved` message means the
+reviewer approves the current document version for the current review request.
+It does not end the session by itself. When reviewer approval arrives, decide
+whether this document state has had enough review from the relevant
+perspectives and angles. If it has, accept approval with:
+
+       {approve}
+
+If another perspective would be useful for the same document state, send a new
+contextual `review_request` that names the angle you want reviewed. If the
+approval revealed a need for more edits or a different framing, edit the
+document and send a `revision_report` instead.
+"""
+        if session.approval_policy.value == "consensus"
+        else ""
     )
     return f"""You are only the editor in this workflow. Do not act as the
 reviewer, spawn a reviewer agent, start another agent session, or run reviewer
@@ -160,10 +194,12 @@ When `arl next` says it is your turn:
 5. After sending a revision report, immediately run the editor wait command
    again and continue this loop until `arl next` reports approval,
    max-rounds-reached, or another terminal state.
+{consensus_guidance}
 """
 
 
 def _reviewer_body(store: Store, session_id: str) -> str:
+    session = store.get_session(session_id)
     review_feedback = build_arl_command(
         store,
         [
@@ -192,6 +228,12 @@ def _reviewer_body(store: Store, session_id: str) -> str:
             "APPROVED",
         ],
     )
+    approval_effect = (
+        "In this consensus session, your approval returns control to the editor; "
+        "the editor decides whether enough approvals/perspectives have been gathered."
+        if session.approval_policy.value == "consensus"
+        else "In this reviewer-only session, your approval ends the session."
+    )
     return f"""When `arl next` says it is your turn:
 
 1. Read the document and the conversation context returned by `arl next`.
@@ -199,7 +241,8 @@ def _reviewer_body(store: Store, session_id: str) -> str:
 
        {review_feedback}
 
-3. If the document is ready, approve it:
+3. If the current document version satisfies the current review request, approve
+   it. {approval_effect}
 
        {approved}
 """

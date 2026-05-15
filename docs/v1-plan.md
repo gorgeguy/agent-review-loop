@@ -18,9 +18,9 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 
 - CLI entry point: `arl`
 - Core commands:
-  - `arl start --doc <path> [--max-rounds 5]`
+  - `arl start --doc <path> [--max-rounds 5] [--approval-policy reviewer-only|consensus]`
   - `arl join --session <id>`
-  - `arl init --doc <path> [--max-rounds 5]`
+  - `arl init --doc <path> [--max-rounds 5] [--approval-policy reviewer-only|consensus]`
   - `arl serve --session <id>`
   - `arl prompt --role editor|reviewer --session <id>`
   - `arl next --role editor|reviewer --session <id> [--wait] [--heartbeat N] [--context 5] [--full-transcript]`
@@ -36,7 +36,7 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   - `approved`
   - `max_rounds_reached`
 - Durable state:
-  - sessions: document path, max rounds, current round, status, turn, socket path
+  - sessions: document path, max rounds, approval policy, current round, status, turn, socket path
   - document versions: round, file hash, snapshot path, timestamp
   - messages: role, type, round, body, timestamp
   - decisions: terminal status and reason
@@ -58,7 +58,9 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   session. It implies the reviewer role and prints the reviewer prompt.
 - `arl init` requires an existing Markdown or text document and records the
   initial hash and snapshot. Empty documents are allowed; the editor prompt tells
-  the editor to draft content first when the file is empty.
+  the editor to draft content first when the file is empty. The approval policy
+  defaults to `reviewer-only`; `consensus` requires editor acceptance after
+  reviewer approval.
 - `arl serve` starts the broker in the foreground on a Unix-domain socket under
   `/tmp/arl/<hash>/`. Durable state remains under the ARL home directory. The
   broker exits on terminal decision or SIGTERM.
@@ -95,7 +97,15 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   editor prompt explicitly says not to final-answer, pause, cancel the wait, or
   end the turn while a session is active and waiting.
 - The reviewer sends `review_feedback` or `approved`. Feedback sets the turn to
-  editor. Approval records a terminal decision.
+  editor. Under the default `reviewer-only` approval policy, reviewer approval
+  records a terminal decision. Under `consensus`, reviewer approval marks the
+  current document version approved for the current review request and returns
+  control to the editor.
+- In `consensus` sessions, the editor decides whether enough approvals and
+  review perspectives have been gathered for the current document state. The
+  editor sends `approved` to accept approval and end the session, sends another
+  contextual `review_request` to seek another angle on the same document state,
+  or sends `revision_report` after making further edits.
 - The editor sends `revision_report` after processing feedback. The report must
   state what changed, what was not changed, and why. The broker hashes and
   snapshots the document, then sets the turn to reviewer.

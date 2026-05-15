@@ -7,6 +7,7 @@ from typing import Any
 
 from agent_review_loop.models import (
     TERMINAL_STATUSES,
+    ApprovalPolicy,
     Message,
     MessageType,
     Role,
@@ -114,8 +115,10 @@ class ReviewWorkflow:
         message_type: MessageType,
         body: str,
     ) -> dict[str, Any]:
+        if message_type == MessageType.APPROVED:
+            return self._accept_consensus_approval(session, body=body)
         if message_type not in {MessageType.REVIEW_REQUEST, MessageType.REVISION_REPORT}:
-            raise WorkflowError("Editor may only send review_request or revision_report")
+            raise WorkflowError("Editor may only send review_request, revision_report, or approved")
 
         next_round = session.current_round + 1
         if next_round > session.max_rounds:
@@ -155,6 +158,13 @@ class ReviewWorkflow:
                 round_number=session.current_round,
                 body=body,
             )
+            if session.approval_policy == ApprovalPolicy.CONSENSUS:
+                next_session = self.store.set_turn(session.id, turn=Turn.EDITOR)
+                return {
+                    "state": "approval_pending",
+                    "message": model_to_dict(message),
+                    "session": model_to_dict(next_session),
+                }
             decision = self.store.record_decision(
                 session.id,
                 status=SessionStatus.APPROVED,
@@ -187,6 +197,31 @@ class ReviewWorkflow:
             "state": "accepted",
             "message": model_to_dict(message),
             "session": model_to_dict(next_session),
+        }
+
+    def _accept_consensus_approval(self, session: Session, *, body: str) -> dict[str, Any]:
+        if session.approval_policy != ApprovalPolicy.CONSENSUS:
+            raise WorkflowError("Editor may only approve when approval_policy is consensus")
+        if not self._is_editor_approval_pending(session):
+            raise WorkflowError("Editor may only approve after reviewer approval")
+
+        message = self.store.append_message(
+            session.id,
+            role=Role.EDITOR,
+            message_type=MessageType.APPROVED,
+            round_number=session.current_round,
+            body=body,
+        )
+        decision = self.store.record_decision(
+            session.id,
+            status=SessionStatus.APPROVED,
+            reason=body,
+        )
+        return {
+            "state": "terminal",
+            "message": model_to_dict(message),
+            "decision": model_to_dict(decision),
+            "session": model_to_dict(self.store.get_session(session.id)),
         }
 
     def _record_max_rounds(
@@ -240,6 +275,8 @@ class ReviewWorkflow:
 
     def _action_for(self, session: Session, role: Role) -> str:
         document_empty = Path(session.document_path).read_text(encoding="utf-8") == ""
+        if role == Role.EDITOR and self._is_editor_approval_pending(session):
+            return "accept_approval_or_request_another_review"
         if role == Role.EDITOR and session.current_round == 0 and document_empty:
             return "draft_document_then_request_review"
         if role == Role.EDITOR and session.current_round == 0:
@@ -247,6 +284,15 @@ class ReviewWorkflow:
         if role == Role.EDITOR:
             return "revise_document_then_send_revision_report"
         return "review_document"
+
+    def _is_editor_approval_pending(self, session: Session) -> bool:
+        if session.approval_policy != ApprovalPolicy.CONSENSUS or session.turn != Turn.EDITOR:
+            return False
+        messages = self.store.list_messages(session.id)
+        if not messages:
+            return False
+        latest = messages[-1]
+        return latest.role == Role.REVIEWER and latest.type == MessageType.APPROVED
 
 
 def parse_role(value: str) -> Role:

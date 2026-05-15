@@ -16,7 +16,7 @@ from typer.testing import CliRunner
 from agent_review_loop import cli
 from agent_review_loop.broker import serve_session
 from agent_review_loop.cli import app
-from agent_review_loop.models import MessageType, Role, SessionStatus
+from agent_review_loop.models import ApprovalPolicy, MessageType, Role, SessionStatus
 from agent_review_loop.store import Store
 
 runner = CliRunner()
@@ -36,6 +36,28 @@ def test_init_should_create_session_and_print_json(tmp_path: Path) -> None:
     payload = json.loads(result.output)
     assert payload["document_path"] == str(document.resolve())
     assert payload["max_rounds"] == 2
+    assert payload["approval_policy"] == "reviewer-only"
+
+
+def test_init_should_accept_consensus_approval_policy(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "init",
+            "--doc",
+            str(document),
+            "--approval-policy",
+            "consensus",
+        ],
+        env=env_for(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["approval_policy"] == "consensus"
 
 
 def test_prompt_should_include_role_commands_and_document_fence(tmp_path: Path) -> None:
@@ -108,6 +130,27 @@ def test_editor_prompt_should_request_contextual_review_body(tmp_path: Path) -> 
     assert "Review my changes." not in result.output
 
 
+def test_consensus_editor_prompt_should_explain_editor_approval_decision(
+    tmp_path: Path,
+) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document, approval_policy=ApprovalPolicy.CONSENSUS)
+
+    result = runner.invoke(
+        app,
+        ["prompt", "--role", "editor", "--session", session.id],
+        env=env_for(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert "Approval policy: consensus" in result.output
+    assert "A reviewer `approved` message" in result.output
+    assert "enough review from the relevant" in result.output
+    assert "--type approved --body APPROVED" in result.output
+
+
 def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
     tmp_path: Path,
 ) -> None:
@@ -134,7 +177,9 @@ def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
     try:
         session = Store(tmp_path / ".arl").get_session(session_id)
         assert session.max_rounds == 2
+        assert session.approval_policy.value == "reviewer-only"
         assert Path(session.socket_path).exists()
+        assert "Approval policy: reviewer-only" in result.output
         assert f"State home: {tmp_path / '.arl'}" in result.output
         assert "Give this reviewer handoff to the user." in result.output
         assert "do not spawn, start, or delegate to a reviewer agent" in result.output

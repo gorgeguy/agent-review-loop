@@ -100,6 +100,81 @@ def test_cli_workflow_should_revise_and_approve_document(tmp_path: Path) -> None
     )
 
 
+def test_cli_consensus_policy_should_wait_for_editor_approval(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    initialized = run_cli(
+        tmp_path,
+        [
+            "init",
+            "--doc",
+            str(document),
+            "--approval-policy",
+            "consensus",
+        ],
+    )
+    session_id = json.loads(initialized.output)["session_id"]
+    stop, thread = start_server(session_id, tmp_path)
+
+    try:
+        run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "editor",
+                "--session",
+                session_id,
+                "--type",
+                "review_request",
+                "--body",
+                "Review this from a fresh-eyes angle.",
+            ],
+        )
+        reviewer_approval = run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "reviewer",
+                "--session",
+                session_id,
+                "--type",
+                "approved",
+                "--body",
+                "Approved for this review prompt.",
+            ],
+        )
+        editor_next = run_cli(tmp_path, ["next", "--role", "editor", "--session", session_id])
+        editor_approval = run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "editor",
+                "--session",
+                session_id,
+                "--type",
+                "approved",
+                "--body",
+                "APPROVED after enough perspectives.",
+            ],
+        )
+    finally:
+        stop.set()
+        thread.join(timeout=2)
+
+    reviewer_payload = json.loads(reviewer_approval.output)["payload"]
+    next_payload = json.loads(editor_next.output)["payload"]
+    approval_payload = json.loads(editor_approval.output)["payload"]
+    assert reviewer_payload["state"] == "approval_pending"
+    assert reviewer_payload["session"]["status"] == "active"
+    assert reviewer_payload["session"]["turn"] == "editor"
+    assert next_payload["action"] == "accept_approval_or_request_another_review"
+    assert approval_payload["state"] == "terminal"
+    assert approval_payload["session"]["status"] == "approved"
+
+
 def test_next_wait_should_resume_when_role_turn_arrives(tmp_path: Path) -> None:
     document = tmp_path / "draft.md"
     document.write_text("# Draft\n", encoding="utf-8")

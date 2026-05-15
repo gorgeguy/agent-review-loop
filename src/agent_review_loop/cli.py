@@ -15,6 +15,7 @@ import typer
 
 from agent_review_loop.broker import serve_session
 from agent_review_loop.client import ClientError, request_for_session
+from agent_review_loop.models import ApprovalPolicy
 from agent_review_loop.paths import arl_home
 from agent_review_loop.prompts import build_arl_command, build_role_prompt
 from agent_review_loop.store import Store, StoreError
@@ -27,6 +28,10 @@ app = typer.Typer(no_args_is_help=True)
 def start(
     doc: Path = typer.Option(..., "--doc", exists=True, file_okay=True, dir_okay=False),
     max_rounds: int = typer.Option(5, "--max-rounds", min=1),
+    approval_policy: str = typer.Option(
+        ApprovalPolicy.REVIEWER_ONLY.value,
+        "--approval-policy",
+    ),
     startup_timeout: float = typer.Option(5.0, "--startup-timeout", hidden=True, min=0.1),
 ) -> None:
     """Start a new session as editor and print agent bootstrap instructions."""
@@ -34,11 +39,16 @@ def start(
     home = arl_home()
     try:
         store = Store(home)
-        session = store.create_session(doc, max_rounds=max_rounds)
+        parsed_policy = parse_approval_policy(approval_policy)
+        session = store.create_session(
+            doc,
+            max_rounds=max_rounds,
+            approval_policy=parsed_policy,
+        )
         broker = start_background_broker(session.id, home=home)
         wait_for_socket(Path(session.socket_path), process=broker, timeout=startup_timeout)
         typer.echo(build_start_output(store, session.id, broker.pid, broker.log_path))
-    except StoreError as exc:
+    except (StoreError, WorkflowError) as exc:
         fail(str(exc))
 
 
@@ -56,12 +66,20 @@ def join(session: str = typer.Option(..., "--session")) -> None:
 def init(
     doc: Path = typer.Option(..., "--doc", exists=True, file_okay=True, dir_okay=False),
     max_rounds: int = typer.Option(5, "--max-rounds", min=1),
+    approval_policy: str = typer.Option(
+        ApprovalPolicy.REVIEWER_ONLY.value,
+        "--approval-policy",
+    ),
 ) -> None:
     """Create a review-loop session for a document."""
 
     try:
-        session = Store(arl_home()).create_session(doc, max_rounds=max_rounds)
-    except StoreError as exc:
+        session = Store(arl_home()).create_session(
+            doc,
+            max_rounds=max_rounds,
+            approval_policy=parse_approval_policy(approval_policy),
+        )
+    except (StoreError, WorkflowError) as exc:
         fail(str(exc))
     emit(
         {
@@ -69,6 +87,7 @@ def init(
             "document_path": session.document_path,
             "socket_path": session.socket_path,
             "max_rounds": session.max_rounds,
+            "approval_policy": session.approval_policy.value,
         }
     )
 
@@ -293,6 +312,7 @@ def build_start_output(store: Store, session_id: str, broker_pid: int, log_path:
 Session id: {session_id}
 State home: {store.home}
 Document path: {session.document_path}
+Approval policy: {session.approval_policy.value}
 Broker pid: {broker_pid}
 Broker log: {log_path}
 
@@ -447,6 +467,18 @@ def monitor_payload(session_id: str) -> dict[str, Any]:
         return ReviewWorkflow(Store(arl_home())).monitor(session_id)
     except StoreError as exc:
         fail(str(exc))
+
+
+def parse_approval_policy(value: str) -> ApprovalPolicy:
+    """Parse a user-supplied approval policy value."""
+
+    try:
+        return ApprovalPolicy(value)
+    except ValueError as exc:
+        allowed = ", ".join(policy.value for policy in ApprovalPolicy)
+        raise WorkflowError(
+            f"Invalid approval policy: {value}. Expected one of: {allowed}"
+        ) from exc
 
 
 def checked_payload(response: dict[str, Any]) -> dict[str, Any]:

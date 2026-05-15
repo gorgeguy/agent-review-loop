@@ -21,7 +21,7 @@ State is stored in `.arl/` under the current working directory by default. Set
 Start a session from the editor agent console:
 
 ```bash
-arl start --doc ./draft.md --max-rounds 5
+arl start --doc ./draft.md --max-rounds 5 --approval-policy consensus
 ```
 
 The command creates the session, starts the broker in the background, prints the
@@ -38,6 +38,10 @@ the initiating agent to follow. Background broker logs are written under
 editor, reviewer, and observer do not need to be in the same current directory.
 The start output explicitly tells the initiating agent not to run the reviewer
 handoff or spawn a reviewer itself unless the user asks.
+
+`--approval-policy` defaults to `reviewer-only`, where reviewer approval ends
+the session. Use `--approval-policy consensus` when reviewer approval should
+return control to the editor for the final decision.
 
 Reviewer agent terminal:
 
@@ -123,6 +127,20 @@ Or approves:
 ```bash
 arl send --role reviewer --session <session-id> --type approved --body "APPROVED"
 ```
+
+In `reviewer-only` sessions, reviewer approval ends the session. In `consensus`
+sessions, reviewer approval means the current document version satisfies the
+current review prompt, then control returns to the editor. The editor decides
+whether enough approvals and review perspectives have been gathered. If yes,
+the editor accepts approval:
+
+```bash
+arl send --role editor --session <session-id> --type approved --body "APPROVED"
+```
+
+If another angle is still useful for the same document state, the editor sends a
+new contextual `review_request`; if edits are needed, the editor sends a
+`revision_report`.
 
 ## Storage And Snapshots
 
