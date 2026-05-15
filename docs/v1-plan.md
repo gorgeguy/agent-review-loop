@@ -18,6 +18,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 
 - CLI entry point: `arl`
 - Core commands:
+  - `arl start --doc <path> [--max-rounds 5]`
+  - `arl join --session <id>`
   - `arl init --doc <path> [--max-rounds 5]`
   - `arl serve --session <id>`
   - `arl prompt --role editor|reviewer --session <id>`
@@ -44,6 +46,13 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 
 ## Behavior
 
+- `arl start` is the high-level editor bootstrap command. It requires an
+  existing Markdown or text document, creates the session, starts the broker in
+  the background, prints the session id, prints a short reviewer handoff that
+  says to run `arl join --session <id>`, and then prints the editor prompt for
+  the initiating agent to follow.
+- `arl join` is the high-level reviewer bootstrap command for an existing
+  session. It implies the reviewer role and prints the reviewer prompt.
 - `arl init` requires an existing Markdown or text document and records the
   initial hash and snapshot. Empty documents are allowed; the editor prompt tells
   the editor to draft content first when the file is empty.
@@ -100,7 +109,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   snapshot creation, message persistence, pending-action selection, and terminal
   state transitions.
 - Protocol tests for Unix socket JSONL request/response handling.
-- CLI tests for `init`, `prompt`, `next`, `next --wait`, `send`, and `monitor`.
+- CLI tests for `start`, `join`, `init`, `prompt`, `next`, `next --wait`,
+  `send`, and `monitor`.
 - End-to-end test with a temporary Markdown file simulating review request,
   feedback, revision report, second review, and approval.
 - Resume test where a fresh editor or reviewer process calls `arl next` mid-loop

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, NoReturn, cast
@@ -17,6 +20,35 @@ from agent_review_loop.store import Store, StoreError
 from agent_review_loop.workflow import WorkflowError, parse_role
 
 app = typer.Typer(no_args_is_help=True)
+
+
+@app.command()
+def start(
+    doc: Path = typer.Option(..., "--doc", exists=True, file_okay=True, dir_okay=False),
+    max_rounds: int = typer.Option(5, "--max-rounds", min=1),
+    startup_timeout: float = typer.Option(5.0, "--startup-timeout", hidden=True, min=0.1),
+) -> None:
+    """Start a new session as editor and print agent bootstrap instructions."""
+
+    home = arl_home()
+    try:
+        store = Store(home)
+        session = store.create_session(doc, max_rounds=max_rounds)
+        broker = start_background_broker(session.id, home=home)
+        wait_for_socket(Path(session.socket_path), process=broker, timeout=startup_timeout)
+        typer.echo(build_start_output(store, session.id, broker.pid, broker.log_path))
+    except StoreError as exc:
+        fail(str(exc))
+
+
+@app.command()
+def join(session: str = typer.Option(..., "--session")) -> None:
+    """Print the reviewer prompt for an existing session."""
+
+    try:
+        typer.echo(build_role_prompt(Store(arl_home()), session, parse_role("reviewer")))
+    except (StoreError, WorkflowError) as exc:
+        fail(str(exc))
 
 
 @app.command()
@@ -165,6 +197,89 @@ def transcript(session: str = typer.Option(..., "--session")) -> None:
 
     payload = monitor_payload(session)
     emit({"ok": True, "payload": {"messages": payload["messages"]}})
+
+
+class BackgroundBroker:
+    """Started broker process details."""
+
+    def __init__(self, pid: int, log_path: Path) -> None:
+        self.pid = pid
+        self.log_path = log_path
+
+
+def start_background_broker(session_id: str, *, home: Path) -> BackgroundBroker:
+    """Launch a broker process for a session and return process metadata."""
+
+    log_dir = home / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"{session_id}.broker.log"
+    command = [sys.executable, "-m", "agent_review_loop.cli", "serve", "--session", session_id]
+    env = {**os.environ, "ARL_HOME": str(home)}
+    with log_path.open("ab") as log_file:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            env=env,
+            start_new_session=True,
+            close_fds=True,
+        )
+    return BackgroundBroker(process.pid, log_path)
+
+
+def wait_for_socket(path: Path, *, process: BackgroundBroker, timeout: float) -> None:
+    """Wait until the broker socket appears or fail with useful diagnostics."""
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists():
+            return
+        if not process_is_running(process.pid):
+            fail(f"Broker exited before creating its socket. See log: {process.log_path}")
+        time.sleep(0.05)
+    fail(f"Timed out waiting for broker socket at {path}. See log: {process.log_path}")
+
+
+def process_is_running(pid: int) -> bool:
+    """Return whether a process still exists."""
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def build_start_output(store: Store, session_id: str, broker_pid: int, log_path: Path) -> str:
+    """Build agent-facing bootstrap text for a new editor-owned session."""
+
+    editor_prompt = build_role_prompt(store, session_id, parse_role("editor"))
+    session = store.get_session(session_id)
+    return f"""Agent Review Loop session started.
+
+Session id: {session_id}
+Document path: {session.document_path}
+Broker pid: {broker_pid}
+Broker log: {log_path}
+
+Paste this into a reviewer agent console:
+
+    Run:
+      arl join --session {session_id}
+
+    Then follow the prompt it prints.
+
+Instructions for the agent running this command:
+Follow the editor prompt below as your active task instructions. Do not create
+another ARL session.
+
+EDITOR PROMPT BEGIN
+{editor_prompt}
+EDITOR PROMPT END
+"""
 
 
 def broker_request(session_id: str, request: dict[str, Any]) -> dict[str, Any]:

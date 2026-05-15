@@ -18,45 +18,30 @@ State is stored in `.arl/` under the current working directory by default. Set
 
 ## Local Workflow
 
-Create a session for an existing document:
+Start a session from the editor agent console:
 
 ```bash
-arl init --doc ./draft.md --max-rounds 5
+arl start --doc ./draft.md --max-rounds 5
 ```
 
-The command prints JSON containing the session id. Use that id in three or four
-terminals.
-
-Broker terminal:
+The command creates the session, starts the broker in the background, prints the
+session id, and prints a short handoff to paste into a reviewer agent console:
 
 ```bash
-arl serve --session <session-id>
+arl join --session <session-id>
 ```
 
-The broker runs in the foreground. It exits when the session is approved, the
-maximum round count is reached, or the process receives an interrupt/terminate
-signal.
-
-Editor agent terminal:
-
-```bash
-arl prompt --role editor --session <session-id>
-```
-
-Paste the generated prompt into the editor agent. The prompt tells the agent to
-loop on:
-
-```bash
-arl next --role editor --session <session-id> --wait
-```
+After printing that reviewer handoff, `arl start` prints the editor prompt for
+the initiating agent to follow. Background broker logs are written under
+`ARL_HOME/logs/`.
 
 Reviewer agent terminal:
 
 ```bash
-arl prompt --role reviewer --session <session-id>
+arl join --session <session-id>
 ```
 
-Paste the generated prompt into the reviewer agent. The reviewer also loops on
+Paste the generated prompt into the reviewer agent. The reviewer loops on
 `arl next --wait` until the session ends.
 
 Observer terminal:
@@ -67,6 +52,32 @@ arl monitor --session <session-id> --follow
 
 `monitor`, `status`, and `transcript` are read-only views over durable state and
 do not affect turn order.
+
+## Lower-Level Workflow
+
+The high-level commands wrap the lower-level primitives. To run the broker in an
+explicit foreground terminal instead, create a session manually:
+
+```bash
+arl init --doc ./draft.md --max-rounds 5
+```
+
+The command prints JSON containing the session id. Start the broker:
+
+```bash
+arl serve --session <session-id>
+```
+
+The broker runs in the foreground. It exits when the session is approved, the
+maximum round count is reached, or the process receives an interrupt/terminate
+signal.
+
+Generate role prompts directly:
+
+```bash
+arl prompt --role editor --session <session-id>
+arl prompt --role reviewer --session <session-id>
+```
 
 ## Agent Message Commands
 

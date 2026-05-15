@@ -128,11 +128,11 @@ def _install_signal_handlers(
 ) -> dict[int, Callable[[int, Any], None] | int | None]:
     previous: dict[int, Callable[[int, Any], None] | int | None] = {}
 
-    def handle_signal(signum: int, frame: Any) -> None:
+    def handle_signal(received_signum: int, frame: Any) -> None:
         stopper.set()
-        old_handler = previous.get(signum)
+        old_handler = previous.get(received_signum)
         if callable(old_handler):
-            old_handler(signum, frame)
+            old_handler(received_signum, frame)
 
     for signum in (signal.SIGTERM, signal.SIGINT):
         previous[signum] = signal.getsignal(signum)
