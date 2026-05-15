@@ -126,8 +126,7 @@ arl send --role reviewer --session <session-id> --type approved --body "APPROVED
 
 Durable state lives in SQLite under `ARL_HOME`. Document snapshots are stored as
 content-addressed files under `ARL_HOME/snapshots/`. Runtime Unix socket files
-live in a short deterministic directory under the system temp directory to avoid
-platform socket path-length limits.
+live under `/tmp/arl/<hash>/` to avoid platform socket path-length limits.
 
 The editor edits the document directly on disk. The broker hashes and snapshots
 the document when the editor sends `review_request` or `revision_report`.

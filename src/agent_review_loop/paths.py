@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from hashlib import sha256
 from pathlib import Path
 
@@ -33,7 +32,7 @@ def sockets_dir(home: Path) -> Path:
     """Return the Unix socket directory."""
 
     home_hash = sha256(str(home).encode("utf-8")).hexdigest()[:12]
-    return Path(tempfile.gettempdir()) / "agent-review-loop" / home_hash
+    return Path("/tmp/arl") / home_hash
 
 
 def socket_path(home: Path, session_id: str) -> Path:

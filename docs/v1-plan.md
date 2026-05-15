@@ -60,8 +60,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   initial hash and snapshot. Empty documents are allowed; the editor prompt tells
   the editor to draft content first when the file is empty.
 - `arl serve` starts the broker in the foreground on a Unix-domain socket under
-  a short deterministic temp directory. Durable state remains under the ARL home
-  directory. The broker exits on terminal decision or SIGTERM.
+  `/tmp/arl/<hash>/`. Durable state remains under the ARL home directory. The
+  broker exits on terminal decision or SIGTERM.
 - `arl prompt` prints a role-specific bootstrap prompt. A user pastes it into a
   fresh agent console to make that agent act as editor or reviewer.
 - Generated prompts tell agents to run `arl next --wait` in a loop, perform work
@@ -105,8 +105,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 
 - Keep v1 local-only; do not expose TCP or WebSocket transport.
 - Use SQLite from the standard library for durable state.
-- Store runtime socket files under a short deterministic temp path to avoid
-  Unix socket path-length limits.
+- Store runtime socket files under `/tmp/arl/<hash>/` to avoid Unix socket
+  path-length limits.
 - Use Typer and Rich for the CLI.
 - Use explicit state transitions; do not infer turn or session status from loose
   message text.

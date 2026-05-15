@@ -74,7 +74,8 @@ def serve_session(
     session = store.get_session(session_id)
     broker = Broker(store)
     sock_path = Path(session.socket_path)
-    sock_path.parent.mkdir(parents=True, exist_ok=True)
+    sock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    sock_path.parent.chmod(0o700)
     if sock_path.exists():
         sock_path.unlink()
 
