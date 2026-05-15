@@ -84,6 +84,9 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 - The editor sends `review_request` when ready for review. The broker hashes and
   snapshots the document at that point, increments or records the review round,
   and sets the turn to reviewer.
+- After sending `review_request` or `revision_report`, the editor prompt tells
+  the editor to immediately run `arl next --role editor --wait` again and keep
+  waiting for reviewer feedback or terminal state without a user reminder.
 - The reviewer sends `review_feedback` or `approved`. Feedback sets the turn to
   editor. Approval records a terminal decision.
 - The editor sends `revision_report` after processing feedback. The report must

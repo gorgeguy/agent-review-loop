@@ -95,6 +95,9 @@ def test_editor_prompt_should_request_contextual_review_body(tmp_path: Path) -> 
     assert "Fresh-eyes review" in result.output
     assert "Plan-space review" in result.output
     assert "Failure-mode review" in result.output
+    assert "Stay engaged in the editor loop." in result.output
+    assert "After every `arl send` command, immediately" in result.output
+    assert "feedback, read that feedback" in result.output
     assert "Review my changes." not in result.output
 
 

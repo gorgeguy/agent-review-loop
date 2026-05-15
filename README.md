@@ -97,6 +97,10 @@ After reviewer feedback, the editor sends a revision report:
 arl send --role editor --session <session-id> --type revision_report --body "Changed X. Did not change Y because Z."
 ```
 
+The generated editor prompt tells the editor to immediately return to
+`arl next --role editor --wait` after sending a review request or revision
+report, so reviewer feedback is picked up without a user reminder.
+
 The reviewer sends feedback:
 
 ```bash

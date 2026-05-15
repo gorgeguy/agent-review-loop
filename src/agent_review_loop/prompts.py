@@ -62,6 +62,10 @@ def build_arl_command(store: Store, args: list[str]) -> str:
 
 
 def _editor_body(store: Store, session_id: str) -> str:
+    editor_next = build_arl_command(
+        store,
+        ["next", "--role", "editor", "--session", session_id, "--wait"],
+    )
     review_request = build_arl_command(
         store,
         [
@@ -94,6 +98,12 @@ def _editor_body(store: Store, session_id: str) -> str:
 reviewer, spawn a reviewer agent, start another agent session, or run reviewer
 handoff commands unless the user explicitly tells you to do that.
 
+Stay engaged in the editor loop. After every `arl send` command, immediately
+run the editor wait command again so you receive reviewer feedback or terminal
+state without requiring a user reminder:
+
+    {editor_next}
+
 When `arl next` says it is your turn:
 
 1. Edit the document directly on disk.
@@ -116,10 +126,15 @@ When `arl next` says it is your turn:
 
        {review_request}
 
-4. After reviewer feedback, revise the document as appropriate and send a
+4. Immediately run the editor wait command again. When it returns reviewer
+   feedback, read that feedback, revise the document as appropriate, and send a
    revision report that states what changed, what did not change, and why:
 
        {revision_report}
+
+5. After sending a revision report, immediately run the editor wait command
+   again and continue this loop until `arl next` reports approval,
+   max-rounds-reached, or another terminal state.
 """
 
 
