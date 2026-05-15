@@ -56,7 +56,9 @@ ARL_HOME=/path/to/.arl arl monitor --session <session-id> --follow
 
 `monitor`, `status`, and `transcript` are read-only views over durable state and
 do not affect turn order. `monitor` and `transcript` default to JSON for agents
-and scripts; add `--human` for readable terminal output:
+and scripts; add `--human` for readable terminal output. `monitor --follow
+--human` prints the initial state once and then prints each new message once as
+it arrives:
 
 ```bash
 ARL_HOME=/path/to/.arl arl monitor --session <session-id> --human

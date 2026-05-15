@@ -174,6 +174,10 @@ def monitor(
 ) -> None:
     """Observe session status and messages without mutating state."""
 
+    if human and follow:
+        follow_monitor_human(session, poll_interval=poll_interval)
+        return
+
     last_signature: tuple[str, int] | None = None
     while True:
         payload = monitor_payload(session)
@@ -321,6 +325,19 @@ EDITOR PROMPT END
 def format_monitor_payload(payload: dict[str, Any]) -> str:
     """Format a monitor payload for humans."""
 
+    return "\n".join(
+        [
+            format_monitor_summary(payload),
+            "",
+            "Transcript:",
+            format_transcript(payload["messages"]),
+        ]
+    )
+
+
+def format_monitor_summary(payload: dict[str, Any]) -> str:
+    """Format a monitor payload summary for humans."""
+
     session = payload["session"]
     latest_version = payload["latest_version"]
     decision = payload["decision"]
@@ -341,8 +358,53 @@ def format_monitor_payload(payload: dict[str, Any]) -> str:
                 f"Reason: {decision['reason']}",
             ]
         )
-    lines.extend(["", "Transcript:", format_transcript(payload["messages"])])
     return "\n".join(lines)
+
+
+def follow_monitor_human(session_id: str, *, poll_interval: float) -> None:
+    """Follow a monitor stream for humans without repeating old messages."""
+
+    last_message_id = 0
+    last_status: str | None = None
+    first = True
+    while True:
+        payload = monitor_payload(session_id)
+        messages = payload["messages"]
+        session_status = str(payload["session"]["status"])
+
+        if first:
+            typer.echo(format_monitor_summary(payload))
+            typer.echo("")
+            typer.echo("Messages:")
+            if messages:
+                typer.echo(format_transcript(messages))
+                last_message_id = int(messages[-1]["id"])
+            else:
+                typer.echo("No messages yet.")
+            first = False
+        else:
+            new_messages = [message for message in messages if int(message["id"]) > last_message_id]
+            if new_messages:
+                typer.echo("")
+                typer.echo(format_transcript(new_messages))
+                last_message_id = int(new_messages[-1]["id"])
+            if session_status != "active" and session_status != last_status:
+                typer.echo("")
+                typer.echo(format_terminal_status(payload))
+
+        last_status = session_status
+        if session_status != "active":
+            return
+        time.sleep(poll_interval)
+
+
+def format_terminal_status(payload: dict[str, Any]) -> str:
+    """Format a terminal monitor status for humans."""
+
+    decision = payload["decision"]
+    if decision is None:
+        return f"Session ended with status: {payload['session']['status']}"
+    return f"Decision: {decision['status']}\nReason: {decision['reason']}"
 
 
 def format_transcript(messages: list[dict[str, Any]]) -> str:

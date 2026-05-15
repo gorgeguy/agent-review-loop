@@ -215,6 +215,77 @@ def test_next_wait_heartbeat_should_report_waiting_on_stderr(tmp_path: Path) -> 
     assert payload["state"] == "ready"
 
 
+def test_monitor_human_follow_should_print_each_message_once(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document)
+    stop, thread = start_server(session.id, tmp_path)
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "agent_review_loop.cli",
+            "monitor",
+            "--session",
+            session.id,
+            "--follow",
+            "--human",
+            "--poll-interval",
+            "0.01",
+        ],
+        cwd=Path.cwd(),
+        env=env_for(tmp_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        sleep(0.05)
+        assert process.poll() is None
+        run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "editor",
+                "--session",
+                session.id,
+                "--type",
+                "review_request",
+                "--body",
+                "Please review once.",
+            ],
+        )
+        run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "reviewer",
+                "--session",
+                session.id,
+                "--type",
+                "approved",
+                "--body",
+                "APPROVED",
+            ],
+        )
+        stdout, stderr = process.communicate(timeout=2)
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        stop.set()
+        thread.join(timeout=2)
+
+    assert stderr == ""
+    assert stdout.count("[1] round 1 editor review_request") == 1
+    assert stdout.count("Please review once.") == 1
+    assert stdout.count("[2] round 1 reviewer approved") == 1
+    assert "Decision: approved" in stdout
+
+
 def run_cli(tmp_path: Path, args: list[str]):
     result = runner.invoke(app, args, env=env_for(tmp_path))
     assert result.exit_code == 0, result.output

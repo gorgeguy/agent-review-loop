@@ -83,7 +83,9 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   the current status, turn, round, latest document hash, latest snapshot path,
   and conversation messages. With `--follow`, it streams new messages until
   terminal state or interrupt. JSON is the default output; `--human` renders a
-  readable terminal summary and transcript.
+  readable terminal summary and transcript. In `--follow --human` mode, the
+  command prints initial state once and then only prints new messages as they
+  arrive.
 - The editor sends `review_request` when ready for review. The broker hashes and
   snapshots the document at that point, increments or records the review round,
   and sets the turn to reviewer.
