@@ -105,7 +105,8 @@ def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
         assert session.max_rounds == 2
         assert Path(session.socket_path).exists()
         assert f"State home: {tmp_path / '.arl'}" in result.output
-        assert "Paste this into a reviewer agent console:" in result.output
+        assert "Give this reviewer handoff to the user." in result.output
+        assert "do not spawn, start, or delegate to a reviewer agent" in result.output
         assert f"ARL_HOME={tmp_path / '.arl'} arl join --session {session_id}" in result.output
         assert (
             f"ARL_HOME={tmp_path / '.arl'} arl monitor --session {session_id} --follow"
@@ -113,6 +114,8 @@ def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
         )
         assert "EDITOR PROMPT BEGIN" in result.output
         assert "You are the editor" in result.output
+        assert "You are only the editor in this workflow." in result.output
+        assert "Do not act as the reviewer" in result.output
         assert "EDITOR PROMPT END" in result.output
     finally:
         stop_process(broker_pid)

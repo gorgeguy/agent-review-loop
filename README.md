@@ -25,7 +25,8 @@ arl start --doc ./draft.md --max-rounds 5
 ```
 
 The command creates the session, starts the broker in the background, prints the
-session id, and prints a short handoff to paste into a reviewer agent console:
+session id, and prints a short reviewer handoff for the initiating agent to give
+to the user:
 
 ```bash
 ARL_HOME=/path/to/.arl arl join --session <session-id>
@@ -35,6 +36,8 @@ After printing that reviewer handoff, `arl start` prints the editor prompt for
 the initiating agent to follow. Background broker logs are written under
 `ARL_HOME/logs/`. The generated commands include `ARL_HOME` explicitly so the
 editor, reviewer, and observer do not need to be in the same current directory.
+The start output explicitly tells the initiating agent not to run the reviewer
+handoff or spawn a reviewer itself unless the user asks.
 
 Reviewer agent terminal:
 

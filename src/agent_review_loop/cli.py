@@ -268,7 +268,9 @@ Document path: {session.document_path}
 Broker pid: {broker_pid}
 Broker log: {log_path}
 
-Paste this into a reviewer agent console:
+Give this reviewer handoff to the user. Do not run this command yourself, and
+do not spawn, start, or delegate to a reviewer agent unless the user explicitly
+asks you to do that.
 
     Run:
       {join_command}
@@ -281,7 +283,8 @@ Optional observer command:
 
 Instructions for the agent running this command:
 Follow the editor prompt below as your active task instructions. Do not create
-another ARL session.
+another ARL session. Do not act as the reviewer, start a reviewer agent, or run
+the reviewer handoff yourself.
 
 EDITOR PROMPT BEGIN
 {editor_prompt}

@@ -50,7 +50,10 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   existing Markdown or text document, creates the session, starts the broker in
   the background, prints the session id, prints a short reviewer handoff that
   says to run `ARL_HOME=<state-dir> arl join --session <id>`, and then prints
-  the editor prompt for the initiating agent to follow.
+  the editor prompt for the initiating agent to follow. The handoff is for the
+  initiating agent to give to the user; the command output explicitly tells the
+  initiating agent not to spawn, start, or run a reviewer itself unless the user
+  asks.
 - `arl join` is the high-level reviewer bootstrap command for an existing
   session. It implies the reviewer role and prints the reviewer prompt.
 - `arl init` requires an existing Markdown or text document and records the
@@ -65,6 +68,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   when it is their turn, send the required message, and stop when the broker
   reports a terminal state. Generated commands include `ARL_HOME=<state-dir>` so
   participants can run from different current directories.
+- The editor prompt tells the editor not to act as reviewer or start reviewer
+  agents. Reviewer bootstrap remains a user-mediated handoff in v1.
 - `arl next` returns the pending action for the role when it is that role's
   turn. Without `--wait`, it returns immediately. With `--wait`, it blocks until
   work is available or the session reaches a terminal state.

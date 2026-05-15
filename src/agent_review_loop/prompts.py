@@ -90,7 +90,11 @@ def _editor_body(store: Store, session_id: str) -> str:
             "<report>",
         ],
     )
-    return f"""When `arl next` says it is your turn:
+    return f"""You are only the editor in this workflow. Do not act as the
+reviewer, spawn a reviewer agent, start another agent session, or run reviewer
+handoff commands unless the user explicitly tells you to do that.
+
+When `arl next` says it is your turn:
 
 1. Edit the document directly on disk.
 2. If this is the first turn and the document is empty, draft the document first.
