@@ -77,6 +77,27 @@ def test_join_should_print_reviewer_prompt(tmp_path: Path) -> None:
     assert f"ARL_HOME={tmp_path / '.arl'} arl send --role reviewer" in result.output
 
 
+def test_editor_prompt_should_request_contextual_review_body(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document)
+
+    result = runner.invoke(
+        app,
+        ["prompt", "--role", "editor", "--session", session.id],
+        env=env_for(tmp_path),
+    )
+
+    assert result.exit_code == 0
+    assert "--type review_request --body '<request>'" in result.output
+    assert "contextual review request" in result.output
+    assert "Fresh-eyes review" in result.output
+    assert "Plan-space review" in result.output
+    assert "Failure-mode review" in result.output
+    assert "Review my changes." not in result.output
+
+
 def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
     tmp_path: Path,
 ) -> None:

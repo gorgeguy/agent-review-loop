@@ -73,7 +73,7 @@ def _editor_body(store: Store, session_id: str) -> str:
             "--type",
             "review_request",
             "--body",
-            "Review my changes.",
+            "<request>",
         ],
     )
     revision_report = build_arl_command(
@@ -98,7 +98,21 @@ When `arl next` says it is your turn:
 
 1. Edit the document directly on disk.
 2. If this is the first turn and the document is empty, draft the document first.
-3. When ready for reviewer input, send:
+3. When ready for reviewer input, send a contextual review request. Replace
+   `<request>` with one or two sentences that tell the reviewer what changed,
+   what kind of review would be most useful, and any known tradeoffs or risk
+   areas. Useful request modes include:
+
+   - Fresh-eyes review: ask the reviewer to look for conceptual mistakes, bad
+     assumptions, confusing reasoning, or missing context.
+   - Plan-space review: ask whether the approach is optimal before more work is
+     spent implementing it.
+   - Failure-mode review: ask what plausible implementation mistakes, missing
+     tests, or unchecked regressions remain.
+   - Targeted review: name the exact section, behavior, or acceptance criterion
+     where feedback would be most valuable.
+
+   Send the request with:
 
        {review_request}
 

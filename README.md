@@ -85,10 +85,10 @@ arl prompt --role reviewer --session <session-id>
 
 ## Agent Message Commands
 
-The editor sends a review request after drafting or editing:
+The editor sends a contextual review request after drafting or editing:
 
 ```bash
-arl send --role editor --session <session-id> --type review_request --body "Review my changes."
+arl send --role editor --session <session-id> --type review_request --body "Fresh-eyes review: I tightened the implementation plan. Please look for bad assumptions, missing failure cases, and places where the approach should change before more work is spent."
 ```
 
 After reviewer feedback, the editor sends a revision report:
