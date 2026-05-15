@@ -157,6 +157,64 @@ def test_next_wait_should_resume_when_role_turn_arrives(tmp_path: Path) -> None:
     assert payload["action"] == "review_document"
 
 
+def test_next_wait_heartbeat_should_report_waiting_on_stderr(tmp_path: Path) -> None:
+    document = tmp_path / "draft.md"
+    document.write_text("# Draft\n", encoding="utf-8")
+    store = Store(tmp_path / ".arl")
+    session = store.create_session(document)
+    stop, thread = start_server(session.id, tmp_path)
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "agent_review_loop.cli",
+            "next",
+            "--role",
+            "reviewer",
+            "--session",
+            session.id,
+            "--wait",
+            "--heartbeat",
+            "0.02",
+            "--poll-interval",
+            "0.01",
+        ],
+        cwd=Path.cwd(),
+        env=env_for(tmp_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        sleep(0.08)
+        assert process.poll() is None
+        run_cli(
+            tmp_path,
+            [
+                "send",
+                "--role",
+                "editor",
+                "--session",
+                session.id,
+                "--type",
+                "review_request",
+                "--body",
+                "Review my changes.",
+            ],
+        )
+        stdout, stderr = process.communicate(timeout=2)
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        stop.set()
+        thread.join(timeout=2)
+
+    assert "Waiting for reviewer work or terminal state" in stderr
+    payload = json.loads(stdout)["payload"]
+    assert payload["state"] == "ready"
+
+
 def run_cli(tmp_path: Path, args: list[str]):
     result = runner.invoke(app, args, env=env_for(tmp_path))
     assert result.exit_code == 0, result.output

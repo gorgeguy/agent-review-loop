@@ -105,7 +105,9 @@ arl send --role editor --session <session-id> --type revision_report --body "Cha
 
 The generated editor prompt tells the editor to immediately return to
 `arl next --role editor --wait` after sending a review request or revision
-report, so reviewer feedback is picked up without a user reminder.
+report, so reviewer feedback is picked up without a user reminder. Generated
+agent prompts include `--heartbeat 30`, which keeps `arl next --wait` blocking
+but prints periodic waiting status to stderr.
 
 The reviewer sends feedback:
 

@@ -23,7 +23,7 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   - `arl init --doc <path> [--max-rounds 5]`
   - `arl serve --session <id>`
   - `arl prompt --role editor|reviewer --session <id>`
-  - `arl next --role editor|reviewer --session <id> [--wait] [--context 5] [--full-transcript]`
+  - `arl next --role editor|reviewer --session <id> [--wait] [--heartbeat N] [--context 5] [--full-transcript]`
   - `arl send --role editor|reviewer --session <id> --type <type> --body <text-or-file>`
   - `arl monitor --session <id> [--follow] [--human]`
 - Diagnostic commands, if still cheap after the core loop lands:
@@ -72,7 +72,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   agents. Reviewer bootstrap remains a user-mediated handoff in v1.
 - `arl next` returns the pending action for the role when it is that role's
   turn. Without `--wait`, it returns immediately. With `--wait`, it blocks until
-  work is available or the session reaches a terminal state.
+  work is available or the session reaches a terminal state. `--heartbeat N`
+  keeps the wait blocking while printing periodic waiting status to stderr.
 - `arl next` includes the document path, round number, latest hash, latest
   snapshot path, the immediately prior message from the other role, and the last
   five session messages by default. `--context N` changes the message count;
@@ -87,7 +88,9 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   and sets the turn to reviewer.
 - After sending `review_request` or `revision_report`, the editor prompt tells
   the editor to immediately run `arl next --role editor --wait` again and keep
-  waiting for reviewer feedback or terminal state without a user reminder.
+  waiting for reviewer feedback or terminal state without a user reminder. The
+  editor prompt explicitly says not to final-answer, pause, cancel the wait, or
+  end the turn while a session is active and waiting.
 - The reviewer sends `review_feedback` or `approved`. Feedback sets the turn to
   editor. Approval records a terminal decision.
 - The editor sends `revision_report` after processing feedback. The report must

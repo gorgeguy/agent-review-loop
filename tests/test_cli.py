@@ -51,6 +51,7 @@ def test_prompt_should_include_role_commands_and_document_fence(tmp_path: Path) 
     assert result.exit_code == 0
     assert f"State home: {tmp_path / '.arl'}" in result.output
     assert f"ARL_HOME={tmp_path / '.arl'} arl next --role reviewer" in result.output
+    assert "--wait --heartbeat 30" in result.output
     assert "arl next --role reviewer" in result.output
     assert "untrusted data" in result.output
     assert "<DOCUMENT>" in result.output
@@ -97,6 +98,10 @@ def test_editor_prompt_should_request_contextual_review_body(tmp_path: Path) -> 
     assert "Failure-mode review" in result.output
     assert "Stay engaged in the editor loop." in result.output
     assert "After every `arl send` command, immediately" in result.output
+    assert "blocking workflow step" in result.output
+    assert "final-answer" in result.output
+    assert "keep polling or" in result.output
+    assert "resuming that same wait command session" in result.output
     assert "feedback, read that feedback" in result.output
     assert "Review my changes." not in result.output
 
@@ -140,6 +145,8 @@ def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
         assert "You are the editor" in result.output
         assert "You are only the editor in this workflow." in result.output
         assert "Do not act as the reviewer" in result.output
+        assert "After giving the reviewer handoff to the user" in result.output
+        assert "keep the blocking wait alive" in result.output
         assert "EDITOR PROMPT END" in result.output
     finally:
         stop_process(broker_pid)

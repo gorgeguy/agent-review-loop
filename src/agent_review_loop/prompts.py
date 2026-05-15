@@ -25,7 +25,16 @@ def build_role_prompt(store: Store, session_id: str, role: Role) -> str:
     )
     next_command = build_arl_command(
         store,
-        ["next", "--role", role.value, "--session", session_id, "--wait"],
+        [
+            "next",
+            "--role",
+            role.value,
+            "--session",
+            session_id,
+            "--wait",
+            "--heartbeat",
+            "30",
+        ],
     )
     return f"""You are the {role.value} for an Agent Review Loop session.
 
@@ -64,7 +73,16 @@ def build_arl_command(store: Store, args: list[str]) -> str:
 def _editor_body(store: Store, session_id: str) -> str:
     editor_next = build_arl_command(
         store,
-        ["next", "--role", "editor", "--session", session_id, "--wait"],
+        [
+            "next",
+            "--role",
+            "editor",
+            "--session",
+            session_id,
+            "--wait",
+            "--heartbeat",
+            "30",
+        ],
     )
     review_request = build_arl_command(
         store,
@@ -103,6 +121,13 @@ run the editor wait command again so you receive reviewer feedback or terminal
 state without requiring a user reminder:
 
     {editor_next}
+
+Treat the editor wait command as a blocking workflow step, not a quick status
+check. If it keeps waiting, that is expected: do not cancel it, do not
+final-answer, do not pause, and do not end your turn while the ARL session is
+active unless the user explicitly tells you to pause or stop. If your execution
+environment yields while the wait command is still running, keep polling or
+resuming that same wait command session; do not terminate it and move on.
 
 When `arl next` says it is your turn:
 

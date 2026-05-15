@@ -104,6 +104,7 @@ def next_command(
     wait: bool = typer.Option(False, "--wait"),
     context: int = typer.Option(5, "--context", min=0),
     full_transcript: bool = typer.Option(False, "--full-transcript"),
+    heartbeat: float | None = typer.Option(None, "--heartbeat", min=0.01),
     poll_interval: float = typer.Option(0.5, "--poll-interval", hidden=True, min=0.01),
 ) -> None:
     """Return the next pending action for a role."""
@@ -115,12 +116,26 @@ def next_command(
         "context": context,
         "full_transcript": full_transcript,
     }
+    heartbeat_interval = heartbeat
+    next_heartbeat = (
+        time.monotonic() + heartbeat_interval if heartbeat_interval is not None else None
+    )
     while True:
         response = broker_request(session, request)
         payload = checked_payload(response)
         if not wait or payload["state"] != "waiting":
             emit(response)
             return
+        if (
+            heartbeat_interval is not None
+            and next_heartbeat is not None
+            and time.monotonic() >= next_heartbeat
+        ):
+            typer.echo(
+                f"Waiting for {role} work or terminal state in session {session}...",
+                err=True,
+            )
+            next_heartbeat = time.monotonic() + heartbeat_interval
         time.sleep(poll_interval)
 
 
@@ -295,7 +310,9 @@ Optional observer command:
 Instructions for the agent running this command:
 Follow the editor prompt below as your active task instructions. Do not create
 another ARL session. Do not act as the reviewer, start a reviewer agent, or run
-the reviewer handoff yourself.
+the reviewer handoff yourself. After giving the reviewer handoff to the user,
+do not final-answer or pause merely because the session is waiting for the
+reviewer. Enter the editor wait loop and keep the blocking wait alive.
 
 EDITOR PROMPT BEGIN
 {editor_prompt}
