@@ -117,9 +117,7 @@ def next_command(
         "full_transcript": full_transcript,
     }
     heartbeat_interval = heartbeat
-    next_heartbeat = (
-        time.monotonic() + heartbeat_interval if heartbeat_interval is not None else None
-    )
+    next_heartbeat = time.monotonic() if heartbeat_interval is not None else None
     while True:
         response = broker_request(session, request)
         payload = checked_payload(response)
