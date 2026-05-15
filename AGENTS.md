@@ -36,6 +36,14 @@ cp -rf source dest          # NOT: cp -r source dest
 - `apt-get` - use `-y` flag
 - `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
 
+## Project-Specific Git Workflow
+
+Follow the global `~/.claude/CLAUDE.md` git rules for this repository:
+use conventional commits, create feature branches for implementation work,
+and merge or fast-forward instead of rebasing. If a generated Beads snippet
+mentions `git pull --rebase`, use `git pull --ff-only` or an explicit merge
+workflow instead.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:f65d5d33 -->
 ## Issue Tracking with bd (beads)
 

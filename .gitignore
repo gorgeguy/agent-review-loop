@@ -35,6 +35,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+.arl/
 
 # Build artifacts
 *.so
