@@ -10,8 +10,10 @@ from pathlib import Path
 from threading import Event, Thread
 from time import monotonic, sleep
 
+import pytest
 from typer.testing import CliRunner
 
+from agent_review_loop import cli
 from agent_review_loop.broker import serve_session
 from agent_review_loop.cli import app
 from agent_review_loop.models import MessageType, Role, SessionStatus
@@ -250,6 +252,66 @@ def test_monitor_human_should_render_session_summary_and_transcript(tmp_path: Pa
     assert "    Check assumptions." in result.output
 
 
+def test_follow_monitor_human_should_render_initial_new_and_terminal_messages(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    document = tmp_path / "draft.md"
+    first_payload = monitor_payload_fixture(
+        session_id="arl-test",
+        document_path=str(document),
+        status="active",
+        messages=[],
+        decision=None,
+    )
+    second_payload = monitor_payload_fixture(
+        session_id="arl-test",
+        document_path=str(document),
+        status="active",
+        messages=[
+            message_fixture(1, role="editor", message_type="review_request", body="Review this.")
+        ],
+        decision=None,
+    )
+    terminal_payload = monitor_payload_fixture(
+        session_id="arl-test",
+        document_path=str(document),
+        status="approved",
+        messages=[
+            message_fixture(1, role="editor", message_type="review_request", body="Review this."),
+            message_fixture(2, role="reviewer", message_type="approved", body="APPROVED"),
+        ],
+        decision={"status": "approved", "reason": "Looks good."},
+    )
+    payloads = iter([first_payload, second_payload, terminal_payload])
+
+    monkeypatch.setattr(cli, "monitor_payload", lambda _session_id: next(payloads))
+    monkeypatch.setattr(cli.time, "sleep", lambda _seconds: None)
+
+    cli.follow_monitor_human("arl-test", poll_interval=0.01)
+
+    output = capsys.readouterr().out
+    assert "No messages yet." in output
+    assert output.count("[1] round 1 editor review_request") == 1
+    assert output.count("Review this.") == 1
+    assert output.count("[2] round 1 reviewer approved") == 1
+    assert "Decision: approved" in output
+    assert "Reason: Looks good." in output
+
+
+def test_format_terminal_status_should_handle_missing_decision() -> None:
+    payload = monitor_payload_fixture(
+        session_id="arl-test",
+        document_path="/tmp/draft.md",
+        status="max_rounds_reached",
+        messages=[],
+        decision=None,
+    )
+
+    assert cli.format_terminal_status(payload) == "Session ended with status: max_rounds_reached"
+
+
 def test_monitor_follow_should_exit_when_session_is_terminal(tmp_path: Path) -> None:
     document = tmp_path / "draft.md"
     document.write_text("# Draft\n", encoding="utf-8")
@@ -294,6 +356,49 @@ def test_transcript_human_should_render_only_messages(tmp_path: Path) -> None:
 
 def env_for(tmp_path: Path) -> dict[str, str]:
     return {**os.environ, "ARL_HOME": str(tmp_path / ".arl")}
+
+
+def monitor_payload_fixture(
+    *,
+    session_id: str,
+    document_path: str,
+    status: str,
+    messages: list[dict[str, object]],
+    decision: dict[str, str] | None,
+) -> dict[str, object]:
+    return {
+        "session": {
+            "id": session_id,
+            "status": status,
+            "turn": "none" if status != "active" else "editor",
+            "current_round": 1,
+            "max_rounds": 5,
+            "document_path": document_path,
+        },
+        "latest_version": {
+            "file_hash": "abc123",
+            "snapshot_path": f"{document_path}.snapshot",
+        },
+        "decision": decision,
+        "messages": messages,
+    }
+
+
+def message_fixture(
+    message_id: int,
+    *,
+    role: str,
+    message_type: str,
+    body: str,
+) -> dict[str, object]:
+    return {
+        "id": message_id,
+        "round": 1,
+        "role": role,
+        "type": message_type,
+        "body": body,
+        "created_at": "2026-05-15T00:00:00+00:00",
+    }
 
 
 def extract_line_value(output: str, label: str) -> str:

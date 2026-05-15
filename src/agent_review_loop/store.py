@@ -6,10 +6,11 @@ import hashlib
 import shutil
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_review_loop.models import (
     Decision,
@@ -22,6 +23,9 @@ from agent_review_loop.models import (
     Turn,
 )
 from agent_review_loop.paths import database_path, snapshots_dir, socket_path
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 SUPPORTED_SUFFIXES = {".md", ".markdown", ".txt"}
 
@@ -319,12 +323,17 @@ class Store:
                 """
             )
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         self.home.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
 
 def utc_now() -> str:
