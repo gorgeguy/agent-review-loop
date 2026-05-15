@@ -49,6 +49,8 @@ def test_prompt_should_include_role_commands_and_document_fence(tmp_path: Path) 
     )
 
     assert result.exit_code == 0
+    assert f"State home: {tmp_path / '.arl'}" in result.output
+    assert f"ARL_HOME={tmp_path / '.arl'} arl next --role reviewer" in result.output
     assert "arl next --role reviewer" in result.output
     assert "untrusted data" in result.output
     assert "<DOCUMENT>" in result.output
@@ -70,8 +72,9 @@ def test_join_should_print_reviewer_prompt(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "You are the reviewer" in result.output
+    assert f"ARL_HOME={tmp_path / '.arl'} arl next --role reviewer" in result.output
     assert "arl next --role reviewer" in result.output
-    assert "arl send --role reviewer" in result.output
+    assert f"ARL_HOME={tmp_path / '.arl'} arl send --role reviewer" in result.output
 
 
 def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
@@ -101,8 +104,13 @@ def test_start_should_create_session_start_broker_and_print_editor_bootstrap(
         session = Store(tmp_path / ".arl").get_session(session_id)
         assert session.max_rounds == 2
         assert Path(session.socket_path).exists()
+        assert f"State home: {tmp_path / '.arl'}" in result.output
         assert "Paste this into a reviewer agent console:" in result.output
-        assert f"arl join --session {session_id}" in result.output
+        assert f"ARL_HOME={tmp_path / '.arl'} arl join --session {session_id}" in result.output
+        assert (
+            f"ARL_HOME={tmp_path / '.arl'} arl monitor --session {session_id} --follow"
+            in result.output
+        )
         assert "EDITOR PROMPT BEGIN" in result.output
         assert "You are the editor" in result.output
         assert "EDITOR PROMPT END" in result.output

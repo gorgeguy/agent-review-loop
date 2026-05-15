@@ -49,8 +49,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
 - `arl start` is the high-level editor bootstrap command. It requires an
   existing Markdown or text document, creates the session, starts the broker in
   the background, prints the session id, prints a short reviewer handoff that
-  says to run `arl join --session <id>`, and then prints the editor prompt for
-  the initiating agent to follow.
+  says to run `ARL_HOME=<state-dir> arl join --session <id>`, and then prints
+  the editor prompt for the initiating agent to follow.
 - `arl join` is the high-level reviewer bootstrap command for an existing
   session. It implies the reviewer role and prints the reviewer prompt.
 - `arl init` requires an existing Markdown or text document and records the
@@ -63,7 +63,8 @@ Python tooling, and uses Beads (`bd`) for all task tracking.
   fresh agent console to make that agent act as editor or reviewer.
 - Generated prompts tell agents to run `arl next --wait` in a loop, perform work
   when it is their turn, send the required message, and stop when the broker
-  reports a terminal state.
+  reports a terminal state. Generated commands include `ARL_HOME=<state-dir>` so
+  participants can run from different current directories.
 - `arl next` returns the pending action for the role when it is that role's
   turn. Without `--wait`, it returns immediately. With `--wait`, it blocks until
   work is available or the session reaches a terminal state.

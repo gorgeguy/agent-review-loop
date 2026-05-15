@@ -28,17 +28,18 @@ The command creates the session, starts the broker in the background, prints the
 session id, and prints a short handoff to paste into a reviewer agent console:
 
 ```bash
-arl join --session <session-id>
+ARL_HOME=/path/to/.arl arl join --session <session-id>
 ```
 
 After printing that reviewer handoff, `arl start` prints the editor prompt for
 the initiating agent to follow. Background broker logs are written under
-`ARL_HOME/logs/`.
+`ARL_HOME/logs/`. The generated commands include `ARL_HOME` explicitly so the
+editor, reviewer, and observer do not need to be in the same current directory.
 
 Reviewer agent terminal:
 
 ```bash
-arl join --session <session-id>
+ARL_HOME=/path/to/.arl arl join --session <session-id>
 ```
 
 Paste the generated prompt into the reviewer agent. The reviewer loops on
@@ -47,7 +48,7 @@ Paste the generated prompt into the reviewer agent. The reviewer loops on
 Observer terminal:
 
 ```bash
-arl monitor --session <session-id> --follow
+ARL_HOME=/path/to/.arl arl monitor --session <session-id> --follow
 ```
 
 `monitor`, `status`, and `transcript` are read-only views over durable state and

@@ -83,7 +83,7 @@ class Store:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         if row is None:
-            raise StoreError(f"Unknown session: {session_id}")
+            raise StoreError(f"Unknown session: {session_id} in ARL_HOME {self.home}")
         return row_to_session(row)
 
     def set_turn(

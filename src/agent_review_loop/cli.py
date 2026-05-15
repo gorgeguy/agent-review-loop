@@ -15,7 +15,7 @@ import typer
 from agent_review_loop.broker import serve_session
 from agent_review_loop.client import ClientError, request_for_session
 from agent_review_loop.paths import arl_home
-from agent_review_loop.prompts import build_role_prompt
+from agent_review_loop.prompts import build_arl_command, build_role_prompt
 from agent_review_loop.store import Store, StoreError
 from agent_review_loop.workflow import WorkflowError, parse_role
 
@@ -258,9 +258,12 @@ def build_start_output(store: Store, session_id: str, broker_pid: int, log_path:
 
     editor_prompt = build_role_prompt(store, session_id, parse_role("editor"))
     session = store.get_session(session_id)
+    join_command = build_arl_command(store, ["join", "--session", session_id])
+    monitor_command = build_arl_command(store, ["monitor", "--session", session_id, "--follow"])
     return f"""Agent Review Loop session started.
 
 Session id: {session_id}
+State home: {store.home}
 Document path: {session.document_path}
 Broker pid: {broker_pid}
 Broker log: {log_path}
@@ -268,9 +271,13 @@ Broker log: {log_path}
 Paste this into a reviewer agent console:
 
     Run:
-      arl join --session {session_id}
+      {join_command}
 
     Then follow the prompt it prints.
+
+Optional observer command:
+
+    {monitor_command}
 
 Instructions for the agent running this command:
 Follow the editor prompt below as your active task instructions. Do not create
